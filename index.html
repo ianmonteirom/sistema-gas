@@ -216,6 +216,15 @@ body {
         <div class="btn-group" id="mode-btns"></div>
       </div>
       <div class="ctrl-row">
+        <div class="ctrl-lbl">REGULADOR DE PRESSÃO</div>
+        <div class="ctrl-desc">Ajuste do parâmetro de regulagem do circuito de CQ-4.</div>
+        <div class="btn-group">
+          <button class="sbtn" id="reg-r1" onclick="setCtrl('reg','r1')">REG-A</button>
+          <button class="sbtn" id="reg-r2" onclick="setCtrl('reg','r2')">REG-B</button>
+          <button class="sbtn" id="reg-r3" onclick="setCtrl('reg','r3')">REG-C</button>
+        </div>
+      </div>
+      <div class="ctrl-row">
         <div class="ctrl-lbl">V2 — VÁLVULA SECUNDÁRIA</div>
         <div class="ctrl-desc" id="v2-desc"></div>
         <div class="btn-group">
@@ -278,8 +287,8 @@ var CELLS = [
     id:'S-1',
     sk:'warn', st:'DESSINCRONIZAÇÃO',
     info:'Sistema de compensação de fluxo em modo incorreto desde última calibração manual. Restaurar operação padrão.',
-    target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'iso',v2:'open'},
+    target:{v1:'open',mode:'normal',v2:'closed',reg:'r2'},
+    start:{v1:'closed',mode:'iso',v2:'open',reg:'r3'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula principal do circuito de entrada.',
     v2d:'Conexão ao ponto de retorno do circuito.',
@@ -303,8 +312,8 @@ var CELLS = [
     id:'S-2', elem:'—',
     sk:'warn', st:'FALHA DE PRESSÃO',
     info:'Vazamento detectado no circuito. Isolar seção completamente antes de redistribuir o fluxo.',
-    target:{v1:'closed',mode:'iso',v2:'closed'},
-    start:{v1:'open',mode:'normal',v2:'open'},
+    target:{v1:'closed',mode:'iso',v2:'closed',reg:'r3'},
+    start:{v1:'open',mode:'normal',v2:'open',reg:'r1'},
     modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
     v1d:'Entrada principal de CQ-4 para a cela.',
     v2d:'Retorno do circuito — fechar para isolar completamente.',
@@ -328,8 +337,8 @@ var CELLS = [
     id:'S-3', elem:'—',
     sk:'crit', st:'SOBREPRESSÃO CRÍTICA', critical:true,
     info:'Sobrepressão crítica detectada. Reduzir injeção e ativar recirculação antes de qualquer outra ação.',
-    target:{v1:'closed',mode:'recirc',v2:'open'},
-    start:{v1:'open',mode:'normal',v2:'closed'},
+    target:{v1:'closed',mode:'recirc',v2:'open',reg:'r1'},
+    start:{v1:'open',mode:'normal',v2:'closed',reg:'r3'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['EMERGÊNCIA','emerg']],
     v1d:'Válvula de injeção de CQ-4 — controla concentração na cela.',
     v2d:'Válvula de retorno — habilita recirculação quando aberta.',
@@ -355,8 +364,8 @@ var CELLS = [
     id:'S-4', gasDisplay:'absent',
     sk:'warn', st:'SEM CQ-4',
     info:'Reservatório CQ-4 esgotado. Válvulas deixadas abertas após esvaziamento — isolar o circuito.',
-    target:{v1:'closed',mode:'normal',v2:'closed'},
-    start:{v1:'open',mode:'recirc',v2:'open'},
+    target:{v1:'closed',mode:'normal',v2:'closed',reg:'r2'},
+    start:{v1:'open',mode:'recirc',v2:'open',reg:'r1'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula de entrada — deixada aberta após esvaziamento do reservatório.',
     v2d:'Válvula de retorno — aberta junto com V1 durante a última sessão.',
@@ -380,8 +389,8 @@ var CELLS = [
     id:'S-5', elem:'Morte',
     sk:'warn', st:'PRESSÃO IRREGULAR',
     info:'Oscilação detectada entre subcelas 5A e 5B. Ativar equilíbrio com ambas válvulas abertas.',
-    target:{v1:'open',mode:'eq',v2:'open'},
-    start:{v1:'closed',mode:'normal',v2:'closed'},
+    target:{v1:'open',mode:'eq',v2:'open',reg:'r3'},
+    start:{v1:'closed',mode:'normal',v2:'closed',reg:'r2'},
     modes:[['NORMAL','normal'],['EQUILÍBRIO','eq'],['EMERGÊNCIA','emerg']],
     v1d:'Entrada principal de CQ-4 para a cela.',
     v2d:'Retorno do circuito — serve de contrapressão no modo equilíbrio.',
@@ -405,8 +414,8 @@ var CELLS = [
     id:'S-6',
     sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
     info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
-    target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'recirc',v2:'open'},
+    target:{v1:'open',mode:'normal',v2:'closed',reg:'r1'},
+    start:{v1:'closed',mode:'recirc',v2:'open',reg:'r2'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula de entrada principal de CQ-4.',
     v2d:'Válvula de retorno do circuito de ventilação.',
@@ -430,8 +439,8 @@ var CELLS = [
     id:'S-7', elem:'—',
     sk:'warn', st:'FALHA DE LEITURA',
     info:'Sensor de presença com falha desde o incidente. CQ-4 em modo emergência automático. Normalizar manualmente.',
-    target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'emerg',v2:'open'},
+    target:{v1:'open',mode:'normal',v2:'closed',reg:'r2'},
+    start:{v1:'closed',mode:'emerg',v2:'open',reg:'r1'},
     modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
     v1d:'Válvula principal — desativada pelo modo emergência automático.',
     v2d:'Válvula de retorno — aberta pelo failsafe de emergência.',
@@ -455,8 +464,8 @@ var CELLS = [
     id:'S-8', gasDisplay:'disabled',
     sk:'warn', st:'SEM PERFIL',
     info:'Sujeito sem registro no sistema. CQ-4 ativo por protocolo padrão. Isolamento preventivo recomendado.',
-    target:{v1:'closed',mode:'iso',v2:'closed'},
-    start:{v1:'open',mode:'normal',v2:'open'},
+    target:{v1:'closed',mode:'iso',v2:'closed',reg:'r3'},
+    start:{v1:'open',mode:'normal',v2:'open',reg:'r2'},
     modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
     v1d:'Entrada principal — ativa em modo padrão sem perfil de sujeito.',
     v2d:'Retorno — aberto junto com V1 no modo padrão.',
@@ -480,8 +489,8 @@ var CELLS = [
     id:'S-10',
     sk:'warn', st:'DESVIO DETECTADO',
     info:'Rotina de calibração periódica detectou desvio de configuração. Sistema fora do padrão de longa permanência.',
-    target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'recirc',v2:'open'},
+    target:{v1:'open',mode:'normal',v2:'closed',reg:'r1'},
+    start:{v1:'closed',mode:'recirc',v2:'open',reg:'r3'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula principal — operação contínua há 8 anos.',
     v2d:'Válvula de retorno do circuito de longa permanência.',
@@ -505,8 +514,8 @@ var CELLS = [
     id:'S-11',
     sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
     info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
-    target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'iso',v2:'open'},
+    target:{v1:'open',mode:'normal',v2:'closed',reg:'r3'},
+    start:{v1:'closed',mode:'iso',v2:'open',reg:'r1'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula de entrada principal de CQ-4.',
     v2d:'Válvula de retorno do circuito de ventilação.',
@@ -553,7 +562,7 @@ var confirmCooldown = false;
 
 // Init local states from CELLS.start
 CELLS.forEach(function(c,i){
-  cellStates[i] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2};
+  cellStates[i] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2, reg:c.start.reg||'r1'};
   cellResolved[i] = false;
 });
 
@@ -661,7 +670,7 @@ function openCell(idx){
     mb.appendChild(btn);
   });
 
-  cellStates[idx] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2};
+  cellStates[idx] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2, reg:c.start.reg||'r1'};
   updatePuzzle();
 }
 
@@ -679,6 +688,12 @@ function setCtrl(ctrl,val){
 }
 
 function computeState(c,s){
+  // Wrong regulator masks all other readings
+  if(s.reg !== c.target.reg){
+    var regReadings = {r1:{press:35,flux:22}, r2:{press:48,flux:31}, r3:{press:28,flux:42}};
+    var base = regReadings[s.reg] || {press:30,flux:25};
+    return {press:base.press, flux:base.flux, lbl:'DESSINCRONIZAÇÃO-REG', sub:'Parâmetro de regulagem fora do intervalo calibrado. Leitura de circuito comprometida.'};
+  }
   var key = s.v1+'|'+s.mode+'|'+s.v2;
   if(c.states && c.states[key]) return c.states[key];
   var t = c.target;
@@ -721,6 +736,11 @@ function updatePuzzle(){
 
   document.getElementById('v2-open').className   = 'sbtn'+(s.v2==='open'?' active-open':'');
   document.getElementById('v2-closed').className = 'sbtn'+(s.v2==='closed'?' active-closed':'');
+
+  ['r1','r2','r3'].forEach(function(r){
+    var btn = document.getElementById('reg-'+r);
+    if(btn) btn.className = 'sbtn'+(s.reg===r?' active-mode':'');
+  });
 
   // No visual feedback on correct state — player must submit
   document.getElementById('confirm-btn').className = 'confirm-btn';
