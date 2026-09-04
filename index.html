@@ -274,16 +274,29 @@ db.ref('.info/connected').on('value', function(snap){
 
 var CELLS = [
   {
-    id:'S-1', elem:'—',
-    sk:'ok', st:'NOMINAL', autoResolve:true,
-    info:'Sistema estável. Nenhuma intervenção necessária.',
+    id:'S-1',
+    sk:'warn', st:'DESSINCRONIZAÇÃO',
+    info:'Sistema de compensação de fluxo em modo incorreto desde última calibração manual. Restaurar operação padrão.',
     target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'open',mode:'recirc',v2:'closed'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
-    v1d:'Controla o fluxo de CQ-4 para a cela.',
-    v2d:'Válvula de retorno do circuito de ventilação.',
-    modedesc:'Define o comportamento do circuito de distribuição.',
-    states:{}
+    v1d:'Válvula principal — operação ativa.',
+    v2d:'Válvula de retorno — deve permanecer fechada no modo normal.',
+    modedesc:'NORMAL restaura o ciclo padrão de distribuição de CQ-4.',
+    states:{
+      'open|recirc|closed':  {press:48,flux:62, lbl:'DESVIO-1A',           sub:'Circuito de recirculação ativo. Leitura de pressão abaixo do padrão estendido.'},
+      'open|recirc|open':    {press:55,flux:80, lbl:'DESVIO-1B',           sub:'Dois pontos de pressão ativos em regime de recirculação. Consumo fora do padrão.'},
+      'open|iso|closed':     {press:28,flux:14, lbl:'ISOLAMENTO-1A',       sub:'Circuito de entrada ativo com isolamento em vigor. Leitura inconsistente.'},
+      'open|iso|open':       {press:32,flux:18, lbl:'ISOLAMENTO-1B',       sub:'V1 e V2 abertas com isolamento. Divergência de leitura entre circuitos.'},
+      'closed|recirc|closed':{press:10,flux:6,  lbl:'RECIRC SEM ENTRADA',  sub:'Recirculação sem injeção de CQ-4. Câmara em déficit.'},
+      'closed|recirc|open':  {press:14,flux:10, lbl:'RECIRC-RETORNO',      sub:'Retorno aberto em recirculação sem entrada. Pressão anômala.'},
+      'closed|iso|closed':   {press:5, flux:2,  lbl:'COLAPSO DE FLUXO',    sub:'Circuito fechado em isolamento. Sem leitura significativa de CQ-4.'},
+      'closed|iso|open':     {press:8, flux:4,  lbl:'DIVERGÊNCIA-ISO',     sub:'Retorno aberto com isolamento e entrada fechada. Estado indefinido.'},
+      'closed|normal|closed':{press:12,flux:5,  lbl:'MODO NORMAL — ZERO',  sub:'Modo normalizado sem entrada de CQ-4. Leitura abaixo do limiar operacional.'},
+      'closed|normal|open':  {press:15,flux:9,  lbl:'RETORNO SEM INJEÇÃO', sub:'Retorno aberto em modo normal sem entrada. Fluxo não mensurável.'},
+      'open|normal|open':    {press:60,flux:68, lbl:'PARCIAL-1A',          sub:'Parâmetros próximos ao padrão. Divergência em leitura secundária detectada.'},
+      'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',             sub:'Sistema sincronizado. CQ-4 estabilizado na S-1.'}
+    }
   },
   {
     id:'S-2', elem:'—',
@@ -296,11 +309,18 @@ var CELLS = [
     v2d:'Retorno do circuito — fechar para isolar completamente.',
     modedesc:'ISOLAMENTO desconecta a cela do circuito geral.',
     states:{
-      'open|normal|open':   {press:88,flux:115,lbl:'SOBREPRESSÃO',sub:'Dois fluxos ativos com vazamento. Sistema instável.'},
-      'open|iso|open':      {press:70,flux:80, lbl:'DIVERGÊNCIA', sub:'Isolamento parcial. V1 aberta impede vedação.'},
-      'closed|emerg|open':  {press:20,flux:30, lbl:'INSUFICIENTE',sub:'Modo emergência incorreto para este tipo de falha.'},
-      'open|emerg|open':    {press:95,flux:130,lbl:'SOBRECARGA',  sub:'Emergência com V1 aberta sobrecarrega o circuito.'},
-      'closed|iso|closed':  {press:62,flux:58, lbl:'NOMINAL',     sub:'Cela isolada. Pressão estabilizada.'}
+      'open|normal|open':   {press:88,flux:115,lbl:'DIVERGÊNCIA-2A',  sub:'Leitura de pressão e fluxo acima dos limites operacionais. Circuito instável.'},
+      'open|normal|closed': {press:75,flux:90, lbl:'DIVERGÊNCIA-2B',  sub:'Pressão elevada com retorno fechado. Vazamento ativo no circuito.'},
+      'open|iso|open':      {press:70,flux:80, lbl:'DIVERGÊNCIA-2C',  sub:'Fluxo de entrada ativo com isolamento. Pressão elevada persistente.'},
+      'open|iso|closed':    {press:55,flux:42, lbl:'ISOLAMENTO-2A',   sub:'Entrada aberta em isolamento com retorno fechado. Pressão em queda lenta.'},
+      'closed|normal|open': {press:30,flux:22, lbl:'FLUXO-2A',        sub:'Retorno aberto sem entrada em modo normal. Leitura de pressão reduzida.'},
+      'closed|normal|closed':{press:15,flux:8, lbl:'FLUXO-2B',        sub:'Circuito fechado em modo normal. Pressão mínima detectada.'},
+      'open|emerg|open':    {press:95,flux:130,lbl:'SOBRECARGA-2A',   sub:'Parâmetros críticos. Sistema em risco de colapso.'},
+      'open|emerg|closed':  {press:80,flux:95, lbl:'SOBRECARGA-2B',   sub:'Modo emergência com entrada aberta. Pressão acima do limiar de ruptura.'},
+      'closed|emerg|open':  {press:20,flux:30, lbl:'EMERGÊNCIA-2A',   sub:'Emergência com retorno aberto. Fluxo invertido sem compensação.'},
+      'closed|emerg|closed':{press:10,flux:5,  lbl:'EMERGÊNCIA-2B',   sub:'Circuito fechado em emergência. Colapso de pressão iminente.'},
+      'closed|iso|open':    {press:38,flux:25, lbl:'ISOLAMENTO-2B',   sub:'Retorno aberto com isolamento e entrada fechada. Pressão decrescente.'},
+      'closed|iso|closed':  {press:62,flux:58, lbl:'NOMINAL',         sub:'Cela isolada. Pressão estabilizada.'}
     }
   },
   {
@@ -314,16 +334,20 @@ var CELLS = [
     v2d:'Válvula de retorno — habilita recirculação quando aberta.',
     modedesc:'RECIRCULAÇÃO redistribui o gás sem novas injeções.',
     states:{
-      'open|normal|closed':   {press:95,flux:130,lbl:'SOBREPRESSÃO CRÍTICA',    sub:'Estado inicial. Risco de ruptura iminente do circuito.'},
-      'open|normal|open':     {press:88,flux:115,lbl:'DIVERGÊNCIA CRÍTICA',      sub:'Dois fluxos simultâneos. Pressão ainda acima do limite.'},
-      'open|recirc|closed':   {press:75,flux:90, lbl:'PARCIALMENTE REDUZIDO',    sub:'Recirculação ativa mas V1 ainda injeta. Insuficiente.'},
-      'open|recirc|open':     {press:65,flux:78, lbl:'AJUSTE INCOMPLETO',        sub:'Progresso detectado — V1 ainda aberta aumenta pressão.'},
-      'closed|normal|closed': {press:40,flux:20, lbl:'FLUXO INSUFICIENTE',       sub:'Sem recirculação ativa. Gás estagnado na câmara.'},
-      'closed|normal|open':   {press:35,flux:40, lbl:'RETORNO SEM CIRCULAÇÃO',   sub:'V2 aberta sem modo recirc. Fluxo sem direção.'},
-      'closed|emerg|closed':  {press:10,flux:8,  lbl:'COLAPSO DO SISTEMA',       sub:'Emergência sem recirculação: colapso total de pressão.'},
-      'closed|emerg|open':    {press:18,flux:15, lbl:'DESVIO CRÍTICO',           sub:'Pressão criticamente baixa. Sistema em risco de falha.'},
-      'open|emerg|open':      {press:22,flux:140,lbl:'SOBRECARGA DE EMERGÊNCIA', sub:'Emergência com V1 aberta: circuito sobrecarregado.'},
-      'closed|recirc|open':   {press:62,flux:58, lbl:'NOMINAL',                  sub:'Sistema estabilizado. CQ-4 cela S-3 normalizado.'}
+      'open|normal|closed':   {press:95,flux:130,lbl:'CRÍTICO-3A',   sub:'Leitura de pressão e fluxo em nível crítico. Circuito em risco.'},
+      'open|normal|open':     {press:88,flux:115,lbl:'CRÍTICO-3B',   sub:'Dois pontos de fluxo ativos. Pressão ainda acima do limiar de segurança.'},
+      'open|recirc|closed':   {press:75,flux:90, lbl:'DESVIO-3A',    sub:'Pressão em queda. Fluxo ainda acima do padrão operacional.'},
+      'open|recirc|open':     {press:65,flux:78, lbl:'DESVIO-3B',    sub:'Parâmetros em tendência de queda. Leitura secundária fora do padrão.'},
+      'open|iso|closed':      {press:50,flux:30, lbl:'ISOLAMENTO-3A',sub:'Fluxo de entrada com isolamento. Pressão acima do limiar de isolamento.'},
+      'open|iso|open':        {press:58,flux:45, lbl:'ISOLAMENTO-3B',sub:'Ambas válvulas abertas com isolamento. Divergência entre leituras.'},
+      'closed|normal|closed': {press:40,flux:20, lbl:'FLUXO-3A',     sub:'Sem recirculação. Pressão decrescente. CQ-4 não circulante.'},
+      'closed|normal|open':   {press:35,flux:40, lbl:'FLUXO-3B',     sub:'Retorno aberto sem entrada e sem recirculação. Leitura anômala.'},
+      'closed|iso|closed':    {press:20,flux:10, lbl:'ISO-3A',        sub:'Circuito fechado em isolamento. Pressão mínima detectada.'},
+      'closed|iso|open':      {press:25,flux:18, lbl:'ISO-3B',        sub:'Retorno aberto em isolamento sem entrada. Estado não recomendado.'},
+      'closed|emerg|closed':  {press:10,flux:8,  lbl:'EMERG-3A',     sub:'Circuito em emergência sem fluxo ativo. Colapso de pressão.'},
+      'closed|emerg|open':    {press:18,flux:15, lbl:'EMERG-3B',     sub:'Retorno aberto em emergência sem entrada. Pressão abaixo do limiar crítico.'},
+      'open|emerg|open':      {press:22,flux:140,lbl:'EMERG-3C',     sub:'Fluxo de emergência com ambas válvulas. Circuito em sobrecarga.'},
+      'closed|recirc|open':   {press:62,flux:58, lbl:'NOMINAL',      sub:'Sistema estabilizado. CQ-4 cela S-3 normalizado.'}
     }
   },
   {
@@ -337,11 +361,18 @@ var CELLS = [
     v2d:'Válvula de retorno — aberta junto com V1 durante a última sessão.',
     modedesc:'NORMAL permite fechar as válvulas sem pressão residual.',
     states:{
-      'open|recirc|open':    {press:12,flux:8,  lbl:'CIRCUITO ABERTO',    sub:'Válvulas abertas com reservatório vazio. Contaminação cruzada possível.'},
-      'open|normal|open':    {press:8, flux:5,  lbl:'SEM FLUIDO',         sub:'Normal sem CQ-4 disponível. Fechar as válvulas.'},
-      'closed|recirc|open':  {press:5, flux:3,  lbl:'ISOLAMENTO PARCIAL', sub:'V1 fechada mas V2 ainda aberta. Circuito não isolado.'},
-      'open|iso|open':       {press:6, flux:4,  lbl:'ISOLAMENTO PARCIAL', sub:'Modo ISO com V1 aberta — insuficiente.'},
-      'closed|normal|closed':{press:62,flux:58, lbl:'NOMINAL',            sub:'Circuito isolado. Sistema pronto para reabastecimento.'}
+      'open|recirc|open':    {press:12,flux:8,  lbl:'DESVIO-4A',  sub:'Leitura residual detectada. Dois pontos de circuito abertos sem fluido.'},
+      'open|normal|open':    {press:8, flux:5,  lbl:'DESVIO-4B',  sub:'Modo normal sem CQ-4 disponível. Parâmetros abaixo do limiar mínimo.'},
+      'open|iso|open':       {press:6, flux:4,  lbl:'DESVIO-4C',  sub:'Ambas válvulas abertas com isolamento. Leitura residual inconsistente.'},
+      'closed|recirc|open':  {press:5, flux:3,  lbl:'FLUXO-4A',   sub:'Retorno aberto em recirculação sem entrada. Pressão mínima não sustentada.'},
+      'open|recirc|closed':  {press:10,flux:6,  lbl:'FLUXO-4B',   sub:'Entrada aberta em recirculação sem retorno. Circuito incompleto.'},
+      'open|iso|closed':     {press:7, flux:4,  lbl:'ISO-4A',     sub:'Entrada aberta com isolamento e retorno fechado. Leitura residual.'},
+      'closed|iso|open':     {press:4, flux:2,  lbl:'ISO-4B',     sub:'Retorno aberto em isolamento sem entrada. Estado não operacional.'},
+      'closed|iso|closed':   {press:3, flux:1,  lbl:'ISO-4C',     sub:'Circuito fechado em isolamento. Leitura abaixo do limiar mínimo de detecção.'},
+      'open|normal|closed':  {press:9, flux:5,  lbl:'NORMAL-4A',  sub:'Entrada aberta em modo normal sem retorno. Pressão residual detectada.'},
+      'closed|normal|open':  {press:5, flux:3,  lbl:'NORMAL-4B',  sub:'Retorno aberto em modo normal sem entrada. Estado indefinido.'},
+      'closed|recirc|closed':{press:4, flux:2,  lbl:'RECIRC-4A',  sub:'Recirculação sem nenhum ponto de fluxo aberto. Sem leitura significativa.'},
+      'closed|normal|closed':{press:62,flux:58, lbl:'NOMINAL',    sub:'Circuito isolado. Sistema pronto para reabastecimento de CQ-4.'}
     }
   },
   {
@@ -355,25 +386,44 @@ var CELLS = [
     v2d:'Retorno do circuito — serve de contrapressão no modo equilíbrio.',
     modedesc:'EQUILÍBRIO distribui o fluxo igualmente entre as subcelas.',
     states:{
-      'open|normal|closed':  {press:45,flux:35, lbl:'DESEQUILÍBRIO',    sub:'Pressão irregular. Fluxo sem contrapressão no retorno.'},
-      'closed|eq|closed':    {press:30,flux:15, lbl:'EQUILÍBRIO VAZIO', sub:'Modo ativo mas sem fluxo. Sem efeito nas câmaras.'},
-      'open|eq|closed':      {press:50,flux:42, lbl:'INCOMPLETO',       sub:'Equilíbrio incompleto — retorno fechado. Pressão não distribui.'},
-      'closed|normal|open':  {press:35,flux:28, lbl:'FLUXO INVERTIDO',  sub:'Fluxo apenas pelo retorno. Pressão irregular.'},
-      'open|emerg|open':     {press:88,flux:115,lbl:'SOBREPRESSÃO',     sub:'Modo emergência com ambas válvulas: carga excessiva.'},
-      'open|eq|open':        {press:62,flux:58, lbl:'NOMINAL',          sub:'Equilíbrio ativo. Pressão estabilizada nas duas subcelas.'}
+      'open|normal|closed':  {press:45,flux:35, lbl:'DESVIO-5A',    sub:'Leitura de pressão assimétrica entre subcelas 5A e 5B detectada.'},
+      'closed|eq|closed':    {press:30,flux:15, lbl:'DESVIO-5B',    sub:'Modo de equilíbrio ativo sem injeção. Subcelas em déficit.'},
+      'open|eq|closed':      {press:50,flux:42, lbl:'DESVIO-5C',    sub:'Parâmetros em transição. Leitura secundária fora do padrão esperado.'},
+      'closed|normal|open':  {press:35,flux:28, lbl:'DESVIO-5D',    sub:'Retorno ativo sem entrada. Gradiente de pressão invertido.'},
+      'closed|normal|closed':{press:20,flux:10, lbl:'FLUXO-5A',     sub:'Circuito em modo normal sem fluxo de entrada. Pressão abaixo do limiar.'},
+      'closed|eq|open':      {press:28,flux:20, lbl:'FLUXO-5B',     sub:'Equilíbrio com retorno ativo sem entrada. Estado indefinido.'},
+      'open|normal|open':    {press:55,flux:48, lbl:'PARCIAL-5A',   sub:'Pressão próxima ao padrão com fluxo desbalanceado entre circuitos.'},
+      'open|emerg|open':     {press:88,flux:115,lbl:'CRÍTICO-5A',   sub:'Parâmetros acima dos limites operacionais. Risco de sobrecarga.'},
+      'open|emerg|closed':   {press:65,flux:80, lbl:'CRÍTICO-5B',   sub:'Pressão elevada em modo emergência. Retorno fechado agrava divergência.'},
+      'closed|emerg|open':   {press:22,flux:18, lbl:'EMERG-5A',     sub:'Retorno aberto em emergência sem entrada. Subcelas sem compensação.'},
+      'closed|emerg|closed': {press:10,flux:6,  lbl:'EMERG-5B',     sub:'Emergência sem fluxo. Pressão mínima em ambas as subcelas.'},
+      'open|eq|open':        {press:62,flux:58, lbl:'NOMINAL',      sub:'Equilíbrio ativo. Pressão estabilizada nas duas subcelas.'}
     }
   },
   {
     id:'S-6',
-    sk:'ok', st:'NOMINAL', autoResolve:true,
-    info:'Sujeito não localizado na instalação. CQ-4 desativado automaticamente por protocolo de cela vazia.',
-    target:{v1:'closed',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'normal',v2:'closed'},
+    sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
+    info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
+    target:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'closed',mode:'iso',v2:'closed'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
-    v1d:'Fechada — cela vazia, sem sujeito ativo.',
-    v2d:'Fechada — sistema desativado.',
-    modedesc:'Sistema inativo por ausência de sujeito.',
-    states:{}
+    v1d:'Válvula de entrada principal de CQ-4.',
+    v2d:'Válvula de retorno do circuito de ventilação.',
+    modedesc:'Define o regime de distribuição do CQ-4 na cela.',
+    states:{
+      'closed|iso|closed':   {press:4, flux:2,  lbl:'P-0 ATIVO',            sub:'Circuito em protocolo de cela vazia. Sensor S-6/PR reportou ausência.'},
+      'open|iso|closed':     {press:18,flux:10, lbl:'DIVERGÊNCIA-ISO',       sub:'Fluxo detectado em circuito de isolamento. Contrapressão insuficiente.'},
+      'closed|iso|open':     {press:6, flux:3,  lbl:'RETORNO ABERTO',        sub:'Circuito de retorno aberto sem pressão de entrada. Estado instável.'},
+      'open|iso|open':       {press:22,flux:14, lbl:'DIVERGÊNCIA-DUPLA',     sub:'Ambas válvulas abertas com isolamento ativo. Fluxo disperso.'},
+      'closed|recirc|closed':{press:8, flux:5,  lbl:'RECIRC SEM ENTRADA',    sub:'Recirculação ativa sem entrada. Câmara sem renovação de CQ-4.'},
+      'open|recirc|closed':  {press:44,flux:50, lbl:'RECIRC ATIVA',          sub:'Fluxo em circuito de recirculação. Parâmetros fora do padrão nominal.'},
+      'closed|recirc|open':  {press:10,flux:8,  lbl:'RETORNO-RECIRC',        sub:'Retorno aberto em modo recirculação. Fluxo insuficiente para câmara.'},
+      'open|recirc|open':    {press:52,flux:65, lbl:'RECIRC ABERTA',         sub:'Ambas válvulas em recirculação. Consumo de CQ-4 acima do esperado.'},
+      'closed|normal|closed':{press:10,flux:5,  lbl:'MODO NORMAL — SEM ENTRADA', sub:'Modo normalizado sem fluxo de entrada. V1 em posição incorreta.'},
+      'closed|normal|open':  {press:14,flux:9,  lbl:'RETORNO ATIVO',         sub:'Retorno aberto sem entrada de CQ-4. Pressão invertida detectada.'},
+      'open|normal|open':    {press:60,flux:68, lbl:'AJUSTE PARCIAL',        sub:'Modo e V1 corretos. Parâmetro secundário fora do padrão.'},
+      'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',               sub:'CQ-4 reativado. Contenção da S-6 restaurada.'}
+    }
   },
   {
     id:'S-7', elem:'—',
@@ -386,10 +436,18 @@ var CELLS = [
     v2d:'Válvula de retorno — aberta pelo failsafe de emergência.',
     modedesc:'NORMAL restaura operação padrão. EMERGÊNCIA mantém o estado atual.',
     states:{
-      'closed|emerg|open':  {press:20,flux:15,lbl:'MODO EMERGÊNCIA',    sub:'Failsafe ativo desde o incidente. Normalizar para restaurar CQ-4.'},
-      'open|emerg|open':    {press:55,flux:90,lbl:'DIVERGÊNCIA',        sub:'V1 aberta com emergência ativa — fluxo instável.'},
-      'open|iso|closed':    {press:38,flux:20,lbl:'ISOLAMENTO PARCIAL', sub:'Isolamento sem modo normal. Pressão abaixo do ideal.'},
-      'open|normal|closed': {press:62,flux:58,lbl:'NOMINAL',            sub:'Sistema restaurado. CQ-4 normalizado.'}
+      'closed|emerg|open':   {press:20,flux:15, lbl:'DESVIO-7A',    sub:'Failsafe ativo. Leitura de fluxo abaixo do limiar operacional padrão.'},
+      'open|emerg|open':     {press:55,flux:90, lbl:'DESVIO-7B',    sub:'Entrada aberta com failsafe ativo. Divergência de fluxo detectada.'},
+      'open|emerg|closed':   {press:42,flux:55, lbl:'DESVIO-7C',    sub:'Entrada ativa em emergência sem retorno. Pressão em transição.'},
+      'closed|emerg|closed': {press:8, flux:4,  lbl:'COLAPSO-7A',   sub:'Circuito fechado em emergência. Colapso de fluxo detectado.'},
+      'open|iso|closed':     {press:38,flux:20, lbl:'ISO-7A',       sub:'Entrada ativa com isolamento e retorno fechado. Pressão abaixo do padrão.'},
+      'open|iso|open':       {press:44,flux:28, lbl:'ISO-7B',       sub:'Ambas válvulas abertas em isolamento. Leitura inconsistente de fluxo.'},
+      'closed|iso|closed':   {press:10,flux:5,  lbl:'ISO-7C',       sub:'Circuito em isolamento total. Sem leitura mensurável de CQ-4.'},
+      'closed|iso|open':     {press:15,flux:10, lbl:'ISO-7D',       sub:'Retorno aberto em isolamento sem entrada. Estado indefinido.'},
+      'closed|normal|closed':{press:12,flux:6,  lbl:'NORMAL-7A',    sub:'Modo normal sem entrada ativa. Fluxo abaixo do limiar operacional.'},
+      'closed|normal|open':  {press:18,flux:12, lbl:'NORMAL-7B',    sub:'Retorno aberto em modo normal sem entrada. Gradiente de pressão anômalo.'},
+      'open|normal|open':    {press:55,flux:70, lbl:'PARCIAL-7A',   sub:'Parâmetros próximos ao padrão. Leitura secundária fora do esperado.'},
+      'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',      sub:'Sistema restaurado. CQ-4 normalizado na S-7.'}
     }
   },
   {
@@ -403,11 +461,18 @@ var CELLS = [
     v2d:'Retorno — aberto junto com V1 no modo padrão.',
     modedesc:'ISOLAMENTO corta o circuito completamente até identificação do sujeito.',
     states:{
-      'open|normal|open':   {press:70,flux:80, lbl:'CIRCUITO ABERTO',   sub:'Sem perfil ativo. Protocolo padrão — CQ-4 distribuído sem calibração.'},
-      'closed|iso|open':    {press:30,flux:18, lbl:'ISOLAMENTO PARCIAL',sub:'V2 ainda aberta. Isolar completamente antes de confirmar.'},
-      'open|iso|closed':    {press:40,flux:22, lbl:'ISOLAMENTO PARCIAL',sub:'V1 ainda aberta. Fechar para completar o isolamento.'},
-      'open|emerg|open':    {press:88,flux:120,lbl:'SOBRECARGA',        sub:'Emergência sem perfil identificado: risco de colapso do circuito.'},
-      'closed|iso|closed':  {press:62,flux:58, lbl:'NOMINAL',           sub:'Circuito isolado. CQ-4 suspenso até identificação do sujeito.'}
+      'open|normal|open':    {press:70,flux:80, lbl:'DESVIO-8A',    sub:'Circuito em operação sem perfil de sujeito. Parâmetros fora do padrão calibrado.'},
+      'open|normal|closed':  {press:58,flux:65, lbl:'DESVIO-8B',    sub:'Entrada ativa sem perfil e sem retorno. Pressão acima do limiar nominal.'},
+      'closed|normal|open':  {press:25,flux:18, lbl:'FLUXO-8A',     sub:'Retorno aberto sem entrada em modo padrão. Gradiente anômalo.'},
+      'closed|normal|closed':{press:12,flux:6,  lbl:'FLUXO-8B',     sub:'Modo normal sem fluxo ativo. Leitura abaixo do limiar operacional.'},
+      'open|emerg|open':     {press:88,flux:120,lbl:'CRÍTICO-8A',   sub:'Parâmetros em nível crítico. Circuito sem perfil em sobrecarga.'},
+      'open|emerg|closed':   {press:72,flux:90, lbl:'CRÍTICO-8B',   sub:'Entrada em emergência sem retorno. Pressão elevada persistente.'},
+      'closed|emerg|open':   {press:18,flux:22, lbl:'EMERG-8A',     sub:'Retorno aberto em emergência sem entrada. Fluxo invertido.'},
+      'closed|emerg|closed': {press:8, flux:4,  lbl:'EMERG-8B',     sub:'Circuito fechado em emergência. Pressão mínima detectada.'},
+      'open|iso|open':       {press:48,flux:30, lbl:'ISO-8A',       sub:'Ambas válvulas abertas com isolamento. Fluxo parcial detectado.'},
+      'closed|iso|open':     {press:30,flux:18, lbl:'ISO-8B',       sub:'Retorno aberto em isolamento sem entrada. Leitura decrescente.'},
+      'open|iso|closed':     {press:40,flux:22, lbl:'ISO-8C',       sub:'Entrada ativa com isolamento e retorno fechado. Pressão em queda.'},
+      'closed|iso|closed':   {press:62,flux:58, lbl:'NOMINAL',      sub:'Circuito isolado. CQ-4 suspenso até identificação do sujeito.'}
     }
   },
   {
@@ -421,25 +486,44 @@ var CELLS = [
     v2d:'Válvula de retorno — aberta indevidamente durante última manutenção.',
     modedesc:'NORMAL restaura configuração padrão de longa permanência.',
     states:{
-      'open|recirc|open':   {press:55,flux:95, lbl:'DESVIO OPERACIONAL',  sub:'Recirculação ativa com V2 aberta. Consumo elevado.'},
-      'open|recirc|closed': {press:58,flux:80, lbl:'RECIRCULAÇÃO ATIVA',  sub:'Recirculação ainda ativa. Retornar ao modo normal.'},
-      'open|iso|closed':    {press:38,flux:22, lbl:'ISOLAMENTO INDEVIDO', sub:'Modo de isolamento inadequado para longa permanência.'},
-      'closed|normal|closed':{press:15,flux:8, lbl:'SUBCARGA',            sub:'V1 fechada. Fluxo insuficiente para sujeito ativo.'},
-      'open|normal|open':   {press:68,flux:75, lbl:'AJUSTE INCOMPLETO',   sub:'Modo normalizado mas V2 ainda aberta.'},
-      'open|normal|closed': {press:62,flux:58, lbl:'NOMINAL',             sub:'Configuração padrão restaurada. Sistema calibrado.'}
+      'open|recirc|open':    {press:55,flux:95, lbl:'DESVIO-10A',  sub:'Circuito em recirculação com dois pontos de fluxo ativos. Parâmetros fora do padrão.'},
+      'open|recirc|closed':  {press:58,flux:80, lbl:'DESVIO-10B',  sub:'Fluxo em recirculação sem retorno. Leitura de pressão acima do esperado.'},
+      'open|iso|closed':     {press:38,flux:22, lbl:'ISO-10A',     sub:'Entrada ativa em isolamento com retorno fechado. Pressão abaixo do padrão de longa permanência.'},
+      'open|iso|open':       {press:42,flux:30, lbl:'ISO-10B',     sub:'Ambas válvulas abertas com isolamento. Divergência de leitura entre circuitos.'},
+      'closed|recirc|closed':{press:10,flux:6,  lbl:'RECIRC-10A', sub:'Recirculação sem entrada. Câmara em déficit de CQ-4.'},
+      'closed|recirc|open':  {press:14,flux:10, lbl:'RECIRC-10B', sub:'Retorno aberto em recirculação sem entrada. Pressão reduzida.'},
+      'closed|iso|closed':   {press:5, flux:2,  lbl:'ISO-10C',    sub:'Circuito fechado em isolamento. Colapso de fluxo detectado.'},
+      'closed|iso|open':     {press:8, flux:5,  lbl:'ISO-10D',    sub:'Retorno aberto em isolamento sem entrada. Estado indefinido.'},
+      'closed|normal|closed':{press:15,flux:8,  lbl:'NORMAL-10A', sub:'Modo normal sem entrada ativa. Fluxo abaixo do limiar para sujeito ativo.'},
+      'closed|normal|open':  {press:18,flux:12, lbl:'NORMAL-10B', sub:'Retorno aberto em modo normal sem entrada. Gradiente anômalo detectado.'},
+      'open|normal|open':    {press:68,flux:75, lbl:'PARCIAL-10A',sub:'Parâmetros próximos ao padrão de longa permanência. Divergência em leitura secundária.'},
+      'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',    sub:'Configuração padrão restaurada. Sistema calibrado para longa permanência.'}
     }
   },
   {
     id:'S-11',
-    sk:'ok', st:'NOMINAL', autoResolve:true,
-    info:'Sujeito não localizado na instalação. CQ-4 desativado automaticamente por protocolo de cela vazia.',
-    target:{v1:'closed',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'normal',v2:'closed'},
+    sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
+    info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
+    target:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'open',mode:'iso',v2:'open'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
-    v1d:'Fechada — cela vazia, sem sujeito ativo.',
-    v2d:'Fechada — sistema desativado.',
-    modedesc:'Sistema inativo por ausência de sujeito.',
-    states:{}
+    v1d:'Válvula de entrada principal de CQ-4.',
+    v2d:'Válvula de retorno do circuito de ventilação.',
+    modedesc:'Define o regime de distribuição do CQ-4 na cela.',
+    states:{
+      'open|iso|open':       {press:22,flux:14, lbl:'P-0 ATIVO',            sub:'V1 e V2 abertas com isolamento. Fluxo bloqueado pelo modo de operação.'},
+      'closed|iso|open':     {press:8, flux:5,  lbl:'RETORNO-ISO',          sub:'Retorno aberto sem entrada em modo isolamento. Pressão negativa detectada.'},
+      'open|iso|closed':     {press:16,flux:9,  lbl:'DIVERGÊNCIA-ISO',      sub:'Fluxo em entrada com isolamento ativo. Contrapressão insuficiente.'},
+      'closed|iso|closed':   {press:4, flux:2,  lbl:'ISOLAMENTO TOTAL',     sub:'Circuito completamente isolado. Sem circulação de CQ-4 na câmara.'},
+      'closed|recirc|closed':{press:8, flux:5,  lbl:'RECIRC SEM ENTRADA',   sub:'Recirculação sem fluxo de entrada. Estado indefinido.'},
+      'open|recirc|closed':  {press:46,flux:52, lbl:'RECIRC PARCIAL',       sub:'Fluxo em circuito de recirculação. Parâmetros fora do padrão.'},
+      'closed|recirc|open':  {press:10,flux:8,  lbl:'RETORNO-RECIRC',       sub:'Retorno aberto em recirculação sem entrada. Pressão reduzida.'},
+      'open|recirc|open':    {press:54,flux:68, lbl:'RECIRC ABERTA',        sub:'Ambas válvulas em recirculação. CQ-4 em circuito fechado desbalanceado.'},
+      'closed|normal|closed':{press:10,flux:5,  lbl:'ENTRADA FECHADA',      sub:'Modo normalizado sem entrada de CQ-4. Parâmetro V1 fora do padrão.'},
+      'closed|normal|open':  {press:12,flux:8,  lbl:'RETORNO ATIVO',        sub:'Retorno aberto em modo normal sem entrada. Pressão invertida.'},
+      'open|normal|open':    {press:60,flux:66, lbl:'AJUSTE PARCIAL',       sub:'Modo e V1 corretos. Parâmetro de retorno fora do padrão esperado.'},
+      'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',              sub:'CQ-4 restaurado. Contenção da S-11 ativa.'}
+    }
   },
   {
     id:'S-V', gasDisplay:'disabled',
@@ -637,6 +721,10 @@ function updatePuzzle(){
   document.getElementById('v2-closed').className = 'sbtn'+(s.v2==='closed'?' active-closed':'');
 
   document.getElementById('confirm-btn').className = 'confirm-btn'+(ok?' ready':'');
+
+  // Broadcast current readings to Firebase for celas to display
+  var c2 = CELLS[currentIdx];
+  db.ref(REF+'/gasData/'+c2.id).set({press:st.press, flux:st.flux, lbl:st.lbl});
 }
 
 function confirmConfig(){
