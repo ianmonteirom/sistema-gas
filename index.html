@@ -122,8 +122,9 @@ body {
   color: #555; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 4px;
   cursor: pointer; border-radius: 2px; transition: all .2s;
 }
-.confirm-btn:hover { border-color: #444; color: #888; }
+.confirm-btn:hover:not(:disabled) { border-color: #444; color: #888; }
 .confirm-btn.ready { border-color: #00aa44; color: #00cc55; background: #001408; }
+.confirm-btn:disabled { cursor: not-allowed; border-color: #880000; color: #cc2200; opacity: 0.8; }
 
 .cell-ok-msg {
   display: none; position: fixed; inset: 0; background: rgba(0,15,5,0.93);
@@ -278,11 +279,11 @@ var CELLS = [
     sk:'warn', st:'DESSINCRONIZAÇÃO',
     info:'Sistema de compensação de fluxo em modo incorreto desde última calibração manual. Restaurar operação padrão.',
     target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'open',mode:'recirc',v2:'closed'},
+    start:{v1:'closed',mode:'iso',v2:'open'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
-    v1d:'Válvula principal — operação ativa.',
-    v2d:'Válvula de retorno — deve permanecer fechada no modo normal.',
-    modedesc:'NORMAL restaura o ciclo padrão de distribuição de CQ-4.',
+    v1d:'Válvula principal do circuito de entrada.',
+    v2d:'Conexão ao ponto de retorno do circuito.',
+    modedesc:'Controla o regime operacional do circuito de CQ-4.',
     states:{
       'open|recirc|closed':  {press:48,flux:62, lbl:'DESVIO-1A',           sub:'Circuito de recirculação ativo. Leitura de pressão abaixo do padrão estendido.'},
       'open|recirc|open':    {press:55,flux:80, lbl:'DESVIO-1B',           sub:'Dois pontos de pressão ativos em regime de recirculação. Consumo fora do padrão.'},
@@ -294,7 +295,7 @@ var CELLS = [
       'closed|iso|open':     {press:8, flux:4,  lbl:'DIVERGÊNCIA-ISO',     sub:'Retorno aberto com isolamento e entrada fechada. Estado indefinido.'},
       'closed|normal|closed':{press:12,flux:5,  lbl:'MODO NORMAL — ZERO',  sub:'Modo normalizado sem entrada de CQ-4. Leitura abaixo do limiar operacional.'},
       'closed|normal|open':  {press:15,flux:9,  lbl:'RETORNO SEM INJEÇÃO', sub:'Retorno aberto em modo normal sem entrada. Fluxo não mensurável.'},
-      'open|normal|open':    {press:60,flux:68, lbl:'PARCIAL-1A',          sub:'Parâmetros próximos ao padrão. Divergência em leitura secundária detectada.'},
+      'open|normal|open':    {press:60,flux:68, lbl:'PARCIAL-1A',          sub:'Leitura de pressão e fluxo próximos ao limiar operacional. Parâmetro secundário divergente.'},
       'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',             sub:'Sistema sincronizado. CQ-4 estabilizado na S-1.'}
     }
   },
@@ -405,11 +406,11 @@ var CELLS = [
     sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
     info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
     target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'closed',mode:'iso',v2:'closed'},
+    start:{v1:'closed',mode:'recirc',v2:'open'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula de entrada principal de CQ-4.',
     v2d:'Válvula de retorno do circuito de ventilação.',
-    modedesc:'Define o regime de distribuição do CQ-4 na cela.',
+    modedesc:'Controla o regime de distribuição do CQ-4 na cela.',
     states:{
       'closed|iso|closed':   {press:4, flux:2,  lbl:'P-0 ATIVO',            sub:'Circuito em protocolo de cela vazia. Sensor S-6/PR reportou ausência.'},
       'open|iso|closed':     {press:18,flux:10, lbl:'DIVERGÊNCIA-ISO',       sub:'Fluxo detectado em circuito de isolamento. Contrapressão insuficiente.'},
@@ -421,7 +422,7 @@ var CELLS = [
       'open|recirc|open':    {press:52,flux:65, lbl:'RECIRC ABERTA',         sub:'Ambas válvulas em recirculação. Consumo de CQ-4 acima do esperado.'},
       'closed|normal|closed':{press:10,flux:5,  lbl:'MODO NORMAL — SEM ENTRADA', sub:'Modo normalizado sem fluxo de entrada. V1 em posição incorreta.'},
       'closed|normal|open':  {press:14,flux:9,  lbl:'RETORNO ATIVO',         sub:'Retorno aberto sem entrada de CQ-4. Pressão invertida detectada.'},
-      'open|normal|open':    {press:60,flux:68, lbl:'AJUSTE PARCIAL',        sub:'Modo e V1 corretos. Parâmetro secundário fora do padrão.'},
+      'open|normal|open':    {press:60,flux:68, lbl:'AJUSTE PARCIAL',        sub:'Leitura próxima ao limiar operacional. Parâmetro de circuito divergente.'},
       'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',               sub:'CQ-4 reativado. Contenção da S-6 restaurada.'}
     }
   },
@@ -434,7 +435,7 @@ var CELLS = [
     modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
     v1d:'Válvula principal — desativada pelo modo emergência automático.',
     v2d:'Válvula de retorno — aberta pelo failsafe de emergência.',
-    modedesc:'NORMAL restaura operação padrão. EMERGÊNCIA mantém o estado atual.',
+    modedesc:'Gerencia o regime de operação do circuito de gás.',
     states:{
       'closed|emerg|open':   {press:20,flux:15, lbl:'DESVIO-7A',    sub:'Failsafe ativo. Leitura de fluxo abaixo do limiar operacional padrão.'},
       'open|emerg|open':     {press:55,flux:90, lbl:'DESVIO-7B',    sub:'Entrada aberta com failsafe ativo. Divergência de fluxo detectada.'},
@@ -446,7 +447,7 @@ var CELLS = [
       'closed|iso|open':     {press:15,flux:10, lbl:'ISO-7D',       sub:'Retorno aberto em isolamento sem entrada. Estado indefinido.'},
       'closed|normal|closed':{press:12,flux:6,  lbl:'NORMAL-7A',    sub:'Modo normal sem entrada ativa. Fluxo abaixo do limiar operacional.'},
       'closed|normal|open':  {press:18,flux:12, lbl:'NORMAL-7B',    sub:'Retorno aberto em modo normal sem entrada. Gradiente de pressão anômalo.'},
-      'open|normal|open':    {press:55,flux:70, lbl:'PARCIAL-7A',   sub:'Parâmetros próximos ao padrão. Leitura secundária fora do esperado.'},
+      'open|normal|open':    {press:55,flux:70, lbl:'PARCIAL-7A',   sub:'Leitura dentro do intervalo operacional. Divergência em parâmetro secundário.'},
       'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',      sub:'Sistema restaurado. CQ-4 normalizado na S-7.'}
     }
   },
@@ -480,11 +481,11 @@ var CELLS = [
     sk:'warn', st:'DESVIO DETECTADO',
     info:'Rotina de calibração periódica detectou desvio de configuração. Sistema fora do padrão de longa permanência.',
     target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'open',mode:'recirc',v2:'open'},
+    start:{v1:'closed',mode:'recirc',v2:'open'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula principal — operação contínua há 8 anos.',
-    v2d:'Válvula de retorno — aberta indevidamente durante última manutenção.',
-    modedesc:'NORMAL restaura configuração padrão de longa permanência.',
+    v2d:'Válvula de retorno do circuito de longa permanência.',
+    modedesc:'Gerencia o regime de distribuição do CQ-4 na cela.',
     states:{
       'open|recirc|open':    {press:55,flux:95, lbl:'DESVIO-10A',  sub:'Circuito em recirculação com dois pontos de fluxo ativos. Parâmetros fora do padrão.'},
       'open|recirc|closed':  {press:58,flux:80, lbl:'DESVIO-10B',  sub:'Fluxo em recirculação sem retorno. Leitura de pressão acima do esperado.'},
@@ -496,7 +497,7 @@ var CELLS = [
       'closed|iso|open':     {press:8, flux:5,  lbl:'ISO-10D',    sub:'Retorno aberto em isolamento sem entrada. Estado indefinido.'},
       'closed|normal|closed':{press:15,flux:8,  lbl:'NORMAL-10A', sub:'Modo normal sem entrada ativa. Fluxo abaixo do limiar para sujeito ativo.'},
       'closed|normal|open':  {press:18,flux:12, lbl:'NORMAL-10B', sub:'Retorno aberto em modo normal sem entrada. Gradiente anômalo detectado.'},
-      'open|normal|open':    {press:68,flux:75, lbl:'PARCIAL-10A',sub:'Parâmetros próximos ao padrão de longa permanência. Divergência em leitura secundária.'},
+      'open|normal|open':    {press:68,flux:75, lbl:'PARCIAL-10A',sub:'Leitura próxima ao limiar de longa permanência. Divergência em parâmetro de retorno.'},
       'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',    sub:'Configuração padrão restaurada. Sistema calibrado para longa permanência.'}
     }
   },
@@ -505,11 +506,11 @@ var CELLS = [
     sk:'warn', st:'PROTOCOLO DE CELA VAZIA',
     info:'Sensor de presença retornou falso negativo. CQ-4 desativado automaticamente por protocolo P-0. Reativar manualmente.',
     target:{v1:'open',mode:'normal',v2:'closed'},
-    start:{v1:'open',mode:'iso',v2:'open'},
+    start:{v1:'closed',mode:'iso',v2:'open'},
     modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
     v1d:'Válvula de entrada principal de CQ-4.',
     v2d:'Válvula de retorno do circuito de ventilação.',
-    modedesc:'Define o regime de distribuição do CQ-4 na cela.',
+    modedesc:'Controla o regime de distribuição do CQ-4 na cela.',
     states:{
       'open|iso|open':       {press:22,flux:14, lbl:'P-0 ATIVO',            sub:'V1 e V2 abertas com isolamento. Fluxo bloqueado pelo modo de operação.'},
       'closed|iso|open':     {press:8, flux:5,  lbl:'RETORNO-ISO',          sub:'Retorno aberto sem entrada em modo isolamento. Pressão negativa detectada.'},
@@ -521,7 +522,7 @@ var CELLS = [
       'open|recirc|open':    {press:54,flux:68, lbl:'RECIRC ABERTA',        sub:'Ambas válvulas em recirculação. CQ-4 em circuito fechado desbalanceado.'},
       'closed|normal|closed':{press:10,flux:5,  lbl:'ENTRADA FECHADA',      sub:'Modo normalizado sem entrada de CQ-4. Parâmetro V1 fora do padrão.'},
       'closed|normal|open':  {press:12,flux:8,  lbl:'RETORNO ATIVO',        sub:'Retorno aberto em modo normal sem entrada. Pressão invertida.'},
-      'open|normal|open':    {press:60,flux:66, lbl:'AJUSTE PARCIAL',       sub:'Modo e V1 corretos. Parâmetro de retorno fora do padrão esperado.'},
+      'open|normal|open':    {press:60,flux:66, lbl:'AJUSTE PARCIAL',       sub:'Leitura próxima ao limiar operacional. Divergência em circuito secundário.'},
       'open|normal|closed':  {press:62,flux:58, lbl:'NOMINAL',              sub:'CQ-4 restaurado. Contenção da S-11 ativa.'}
     }
   },
@@ -548,6 +549,7 @@ var cellResolved = {};
 var currentIdx   = -1;
 var mainSolved   = false;
 var fbLoaded     = false;
+var confirmCooldown = false;
 
 // Init local states from CELLS.start
 CELLS.forEach(function(c,i){
@@ -720,7 +722,8 @@ function updatePuzzle(){
   document.getElementById('v2-open').className   = 'sbtn'+(s.v2==='open'?' active-open':'');
   document.getElementById('v2-closed').className = 'sbtn'+(s.v2==='closed'?' active-closed':'');
 
-  document.getElementById('confirm-btn').className = 'confirm-btn'+(ok?' ready':'');
+  // No visual feedback on correct state — player must submit
+  document.getElementById('confirm-btn').className = 'confirm-btn';
 
   // Broadcast current readings to Firebase for celas to display
   var c2 = CELLS[currentIdx];
@@ -728,11 +731,29 @@ function updatePuzzle(){
 }
 
 function confirmConfig(){
-  if(currentIdx<0) return;
+  if(currentIdx<0 || confirmCooldown) return;
   var c = CELLS[currentIdx];
   var s = cellStates[currentIdx];
   var st = computeState(c,s);
-  if(st.lbl!=='NOMINAL') return;
+  if(st.lbl!=='NOMINAL'){
+    confirmCooldown = true;
+    var btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    var secs = 12;
+    btn.textContent = 'CONFIGURAÇÃO REJEITADA — '+secs+'s';
+    var timer = setInterval(function(){
+      secs--;
+      if(secs<=0){
+        clearInterval(timer);
+        confirmCooldown = false;
+        btn.disabled = false;
+        btn.textContent = 'CONFIRMAR CONFIGURAÇÃO';
+      } else {
+        btn.textContent = 'CONFIGURAÇÃO REJEITADA — '+secs+'s';
+      }
+    }, 1000);
+    return;
+  }
 
   cellResolved[currentIdx] = true;
   saveResolved(c.id);  // write to Firebase → propagates to celas.html in real-time
