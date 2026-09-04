@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puzzle 3 — Sistema de Gás | N-7</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0a0a0a; color: #ccc; font-family: 'Courier New', monospace;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+}
+.container { width: 100%; max-width: 580px; padding: 28px 20px; }
+
+.topbar {
+  background: #1a1a1a; color: #888; padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 2px;
+  margin-bottom: 0;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+}
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; display: inline-block; margin-right: 6px; transition: background .4s; }
+.conn-dot.ok  { background: #00cc44; }
+.conn-dot.err { background: #cc2200; }
+.container { padding-top: 52px; }
+
+.hdr { text-align: center; margin-bottom: 24px; border-bottom: 1px solid #1a1a1a; padding-bottom: 16px; }
+.hdr .inst { font-size: 13px; letter-spacing: 5px; color: #555; margin-bottom: 6px; }
+.hdr .ttl  { font-size: 15px; letter-spacing: 3px; color: #888; }
+
+.cell-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cell-card {
+  background: #111; border: 1px solid #222; border-radius: 4px;
+  padding: 14px 16px; cursor: pointer; transition: border-color .15s, background .15s;
+  user-select: none; position: relative; overflow: hidden;
+}
+.cell-card:hover:not(.no-action) { border-color: #444; background: #181818; }
+.cell-card.no-action { cursor: default; }
+.cell-card.gas-operating { border-color: #005522; background: #00100a; }
+.cell-card.gas-operating:hover:not(.no-action) { border-color: #008833; background: #001a0e; }
+.cell-card.gas-absent { border-color: #554400; background: #0d0900; cursor: default; }
+.cell-card.gas-absent:hover { border-color: #554400 !important; background: #0d0900; }
+.cell-card.gas-disabled { border-color: #550000; background: #100000; cursor: default; }
+.cell-card.gas-disabled:hover { border-color: #550000 !important; background: #100000; }
+.cell-card.resolved-now { border-color: #007733 !important; background: #001a0a; }
+
+.gas-oper-badge, .gas-abs-badge, .gas-dis-badge, .gas-done-badge {
+  position: absolute; top: 8px; right: 8px;
+  border-radius: 20px; font-size: 11px; font-weight: 700; padding: 3px 9px; letter-spacing: 1px;
+}
+.gas-oper-badge { background: #003a18; color: #00cc55; }
+.gas-abs-badge  { background: #3a2800; color: #cc8800; }
+.gas-dis-badge  { background: #3a0000; color: #cc3300; }
+.gas-done-badge { background: #002a10; color: #00aa44; }
+.c-id   { font-size: 13px; letter-spacing: 3px; color: #444; margin-bottom: 5px; }
+.c-status { display: flex; align-items: center; gap: 7px; }
+.sdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sdot.ok   { background: #00aa44; }
+.sdot.warn { background: #cc8800; }
+.sdot.crit { background: #cc2200; }
+.sdot.lock { background: #333; }
+.sdot.done { background: #00cc55; }
+.stxt { font-size: 13px; letter-spacing: 1px; }
+.stxt.ok   { color: #00aa44; }
+.stxt.warn { color: #cc8800; }
+.stxt.crit { color: #cc2200; }
+.stxt.lock { color: #444; }
+.stxt.done { color: #00cc55; }
+
+#screen-puzzle { display: none; }
+.back-btn {
+  background: none; border: 1px solid #2a2a2a; color: #666;
+  font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 2px;
+  padding: 8px 18px; cursor: pointer; border-radius: 2px; margin-bottom: 22px;
+  transition: border-color .15s, color .15s;
+}
+.back-btn:hover { border-color: #555; color: #aaa; }
+
+.cell-title { text-align: center; margin-bottom: 22px; }
+.cell-title .cid   { font-size: 13px; letter-spacing: 4px; color: #444; }
+.cell-title .cinfo {
+  font-size: 13px; color: #555; margin-top: 8px; line-height: 1.6;
+  border: 1px solid #1a1a1a; border-radius: 3px; padding: 10px 14px; background: #0d0d0d;
+}
+
+.gauges { display: flex; gap: 20px; margin-bottom: 18px; }
+.gauge { flex: 1; }
+.gauge-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.gauge-label .name { font-size: 13px; letter-spacing: 2px; color: #777; }
+.gauge-label .val  { font-size: 16px; font-weight: bold; color: #aaa; min-width: 44px; text-align: right; }
+.gauge-track { height: 6px; background: #111; border-radius: 3px; overflow: hidden; }
+.gauge-fill  { height: 100%; border-radius: 3px; transition: width .4s, background .4s; }
+
+.status-box {
+  text-align: center; margin-bottom: 20px; padding: 13px 16px;
+  background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 4px;
+}
+.status-lbl { font-size: 14px; letter-spacing: 3px; transition: color .3s; }
+.status-sub { font-size: 13px; letter-spacing: 1px; color: #555; margin-top: 5px; transition: color .3s; }
+
+.controls { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.ctrl-row {
+  background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 4px; padding: 14px 16px;
+}
+.ctrl-lbl  { font-size: 13px; letter-spacing: 3px; color: #444; margin-bottom: 6px; }
+.ctrl-desc { font-size: 13px; color: #555; margin-bottom: 10px; letter-spacing: 0.5px; line-height: 1.5; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.sbtn {
+  flex: 1; padding: 10px 12px; background: #111; border: 1px solid #2a2a2a;
+  color: #555; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 2px;
+  cursor: pointer; border-radius: 2px; transition: all .15s; min-width: 80px;
+}
+.sbtn:hover { border-color: #444; color: #999; }
+.sbtn.active-open   { border-color: #00aa44; color: #00cc44; background: #001408; }
+.sbtn.active-closed { border-color: #cc5500; color: #ee6600; background: #1a0800; }
+.sbtn.active-mode   { border-color: #2255aa; color: #4488cc; background: #050f20; }
+
+.confirm-btn {
+  width: 100%; padding: 15px; background: #0d0d0d; border: 1px solid #2a2a2a;
+  color: #555; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 4px;
+  cursor: pointer; border-radius: 2px; transition: all .2s;
+}
+.confirm-btn:hover { border-color: #444; color: #888; }
+.confirm-btn.ready { border-color: #00aa44; color: #00cc55; background: #001408; }
+
+.cell-ok-msg {
+  display: none; position: fixed; inset: 0; background: rgba(0,15,5,0.93);
+  align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+  animation: fadeIn .3s ease;
+}
+.cell-ok-msg.show { display: flex; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.csm-icon  { font-size: 52px; color: #00cc44; }
+.csm-title { font-size: 14px; letter-spacing: 4px; color: #00aa44; }
+.csm-cell  { font-size: 13px; color: #005533; letter-spacing: 2px; }
+.csm-btn {
+  margin-top: 10px; padding: 10px 28px; background: none; border: 1px solid #00994d;
+  color: #00aa44; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 3px;
+  cursor: pointer; border-radius: 2px; transition: background .15s;
+}
+.csm-btn:hover { background: #001a0a; }
+
+.success-screen {
+  display: none; position: fixed; inset: 0; background: #020f05;
+  align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+}
+.success-screen.show { display: flex; }
+.s-icon  { font-size: 64px; color: #00cc44; }
+.s-title { font-size: 13px; letter-spacing: 5px; color: #00aa33; }
+.s-lines { display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.s-line     { font-size: 11px; letter-spacing: 2px; color: #00aa55; }
+.s-line.dim { font-size: 11px; letter-spacing: 2px; color: #004422; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span><span class="conn-dot" id="conn-dot"></span><span id="conn-txt">CONECTANDO...</span></span>
+  <span>N-7 / SISTEMA DE GÁS</span>
+</div>
+
+<div class="container">
+  <div class="hdr">
+    <div class="inst">N-7 / SISTEMA DE VENTILAÇÃO</div>
+    <div class="ttl">CONTROLE DE GÁS CQ-4</div>
+  </div>
+
+  <div id="screen-select">
+    <div class="cell-grid" id="cell-grid"></div>
+  </div>
+
+  <div id="screen-puzzle">
+    <button class="back-btn" onclick="goBack()">← SELECIONAR CELA</button>
+    <div class="cell-title">
+      <div class="cid" id="p-cid"></div>
+      <div class="cinfo" id="p-cinfo"></div>
+    </div>
+
+    <div class="gauges">
+      <div class="gauge">
+        <div class="gauge-label">
+          <span class="name">PRESSÃO</span>
+          <span class="val" id="g-press">--%</span>
+        </div>
+        <div class="gauge-track"><div class="gauge-fill" id="gf-press" style="width:0"></div></div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-label">
+          <span class="name">FLUXO</span>
+          <span class="val" id="g-flux">--%</span>
+        </div>
+        <div class="gauge-track"><div class="gauge-fill" id="gf-flux" style="width:0"></div></div>
+      </div>
+    </div>
+
+    <div class="status-box">
+      <div class="status-lbl" id="s-lbl">—</div>
+      <div class="status-sub" id="s-sub">—</div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl-row">
+        <div class="ctrl-lbl">V1 — VÁLVULA PRINCIPAL</div>
+        <div class="ctrl-desc" id="v1-desc"></div>
+        <div class="btn-group">
+          <button class="sbtn" id="v1-open"   onclick="setCtrl('v1','open')">ABERTA</button>
+          <button class="sbtn" id="v1-closed" onclick="setCtrl('v1','closed')">FECHADA</button>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-lbl">MODO DO SISTEMA</div>
+        <div class="ctrl-desc" id="mode-desc"></div>
+        <div class="btn-group" id="mode-btns"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-lbl">V2 — VÁLVULA SECUNDÁRIA</div>
+        <div class="ctrl-desc" id="v2-desc"></div>
+        <div class="btn-group">
+          <button class="sbtn" id="v2-open"   onclick="setCtrl('v2','open')">ABERTA</button>
+          <button class="sbtn" id="v2-closed" onclick="setCtrl('v2','closed')">FECHADA</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="confirm-btn" id="confirm-btn" onclick="confirmConfig()">CONFIRMAR CONFIGURAÇÃO</button>
+  </div>
+</div>
+
+<div class="cell-ok-msg" id="cell-ok-msg">
+  <div class="csm-icon">✓</div>
+  <div class="csm-title" id="csm-title">SISTEMA ESTABILIZADO</div>
+  <div class="csm-cell"  id="csm-cell"></div>
+  <button class="csm-btn" onclick="closeCellOk()">VOLTAR AO PAINEL</button>
+</div>
+
+<div class="success-screen" id="successSc">
+  <div class="s-icon">✓</div>
+  <div class="s-title">SISTEMA ESTABILIZADO</div>
+  <div class="s-lines">
+    <div class="s-line">CQ-4 CELA S-3 — NOMINAL</div>
+    <div class="s-line dim">Pressão: 62% | Fluxo: 58%</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+var firebaseConfig = {
+  apiKey: "AIzaSyDufJ4tagEyi79LEdVKFz3joH2Jbas3tzM",
+  authDomain: "sistema-n7.firebaseapp.com",
+  databaseURL: "https://sistema-n7-default-rtdb.firebaseio.com",
+  projectId: "sistema-n7",
+  storageBucket: "sistema-n7.firebasestorage.app",
+  messagingSenderId: "818418177254",
+  appId: "1:818418177254:web:93bdc71cd1a22d25585727"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var REF = 'n7';
+
+// Connection indicator
+db.ref('.info/connected').on('value', function(snap){
+  var ok = snap.val() === true;
+  var dot = document.getElementById('conn-dot');
+  var txt = document.getElementById('conn-txt');
+  dot.className = 'conn-dot ' + (ok ? 'ok' : 'err');
+  txt.textContent = ok ? 'ONLINE' : 'OFFLINE';
+});
+
+// ============================================================
+
+var CELLS = [
+  {
+    id:'S-1', elem:'—',
+    sk:'ok', st:'NOMINAL', autoResolve:true,
+    info:'Sistema estável. Nenhuma intervenção necessária.',
+    target:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'open',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
+    v1d:'Controla o fluxo de CQ-4 para a cela.',
+    v2d:'Válvula de retorno do circuito de ventilação.',
+    modedesc:'Define o comportamento do circuito de distribuição.',
+    states:{}
+  },
+  {
+    id:'S-2', elem:'—',
+    sk:'warn', st:'FALHA DE PRESSÃO',
+    info:'Vazamento detectado no circuito. Isolar seção completamente antes de redistribuir o fluxo.',
+    target:{v1:'closed',mode:'iso',v2:'closed'},
+    start:{v1:'open',mode:'normal',v2:'open'},
+    modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
+    v1d:'Entrada principal de CQ-4 para a cela.',
+    v2d:'Retorno do circuito — fechar para isolar completamente.',
+    modedesc:'ISOLAMENTO desconecta a cela do circuito geral.',
+    states:{
+      'open|normal|open':   {press:88,flux:115,lbl:'SOBREPRESSÃO',sub:'Dois fluxos ativos com vazamento. Sistema instável.'},
+      'open|iso|open':      {press:70,flux:80, lbl:'DIVERGÊNCIA', sub:'Isolamento parcial. V1 aberta impede vedação.'},
+      'closed|emerg|open':  {press:20,flux:30, lbl:'INSUFICIENTE',sub:'Modo emergência incorreto para este tipo de falha.'},
+      'open|emerg|open':    {press:95,flux:130,lbl:'SOBRECARGA',  sub:'Emergência com V1 aberta sobrecarrega o circuito.'},
+      'closed|iso|closed':  {press:62,flux:58, lbl:'NOMINAL',     sub:'Cela isolada. Pressão estabilizada.'}
+    }
+  },
+  {
+    id:'S-3', elem:'—',
+    sk:'crit', st:'SOBREPRESSÃO CRÍTICA', critical:true,
+    info:'Sobrepressão crítica detectada. Reduzir injeção e ativar recirculação antes de qualquer outra ação.',
+    target:{v1:'closed',mode:'recirc',v2:'open'},
+    start:{v1:'open',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['EMERGÊNCIA','emerg']],
+    v1d:'Válvula de injeção de CQ-4 — controla concentração na cela.',
+    v2d:'Válvula de retorno — habilita recirculação quando aberta.',
+    modedesc:'RECIRCULAÇÃO redistribui o gás sem novas injeções.',
+    states:{
+      'open|normal|closed':   {press:95,flux:130,lbl:'SOBREPRESSÃO CRÍTICA',    sub:'Estado inicial. Risco de ruptura iminente do circuito.'},
+      'open|normal|open':     {press:88,flux:115,lbl:'DIVERGÊNCIA CRÍTICA',      sub:'Dois fluxos simultâneos. Pressão ainda acima do limite.'},
+      'open|recirc|closed':   {press:75,flux:90, lbl:'PARCIALMENTE REDUZIDO',    sub:'Recirculação ativa mas V1 ainda injeta. Insuficiente.'},
+      'open|recirc|open':     {press:65,flux:78, lbl:'AJUSTE INCOMPLETO',        sub:'Progresso detectado — V1 ainda aberta aumenta pressão.'},
+      'closed|normal|closed': {press:40,flux:20, lbl:'FLUXO INSUFICIENTE',       sub:'Sem recirculação ativa. Gás estagnado na câmara.'},
+      'closed|normal|open':   {press:35,flux:40, lbl:'RETORNO SEM CIRCULAÇÃO',   sub:'V2 aberta sem modo recirc. Fluxo sem direção.'},
+      'closed|emerg|closed':  {press:10,flux:8,  lbl:'COLAPSO DO SISTEMA',       sub:'Emergência sem recirculação: colapso total de pressão.'},
+      'closed|emerg|open':    {press:18,flux:15, lbl:'DESVIO CRÍTICO',           sub:'Pressão criticamente baixa. Sistema em risco de falha.'},
+      'open|emerg|open':      {press:22,flux:140,lbl:'SOBRECARGA DE EMERGÊNCIA', sub:'Emergência com V1 aberta: circuito sobrecarregado.'},
+      'closed|recirc|open':   {press:62,flux:58, lbl:'NOMINAL',                  sub:'Sistema estabilizado. CQ-4 cela S-3 normalizado.'}
+    }
+  },
+  {
+    id:'S-4', gasDisplay:'absent',
+    sk:'warn', st:'SEM CQ-4',
+    info:'Reservatório CQ-4 esgotado. Válvulas deixadas abertas após esvaziamento — isolar o circuito.',
+    target:{v1:'closed',mode:'normal',v2:'closed'},
+    start:{v1:'open',mode:'recirc',v2:'open'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
+    v1d:'Válvula de entrada — deixada aberta após esvaziamento do reservatório.',
+    v2d:'Válvula de retorno — aberta junto com V1 durante a última sessão.',
+    modedesc:'NORMAL permite fechar as válvulas sem pressão residual.',
+    states:{
+      'open|recirc|open':    {press:12,flux:8,  lbl:'CIRCUITO ABERTO',    sub:'Válvulas abertas com reservatório vazio. Contaminação cruzada possível.'},
+      'open|normal|open':    {press:8, flux:5,  lbl:'SEM FLUIDO',         sub:'Normal sem CQ-4 disponível. Fechar as válvulas.'},
+      'closed|recirc|open':  {press:5, flux:3,  lbl:'ISOLAMENTO PARCIAL', sub:'V1 fechada mas V2 ainda aberta. Circuito não isolado.'},
+      'open|iso|open':       {press:6, flux:4,  lbl:'ISOLAMENTO PARCIAL', sub:'Modo ISO com V1 aberta — insuficiente.'},
+      'closed|normal|closed':{press:62,flux:58, lbl:'NOMINAL',            sub:'Circuito isolado. Sistema pronto para reabastecimento.'}
+    }
+  },
+  {
+    id:'S-5', elem:'Morte',
+    sk:'warn', st:'PRESSÃO IRREGULAR',
+    info:'Oscilação detectada entre subcelas 5A e 5B. Ativar equilíbrio com ambas válvulas abertas.',
+    target:{v1:'open',mode:'eq',v2:'open'},
+    start:{v1:'closed',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['EQUILÍBRIO','eq'],['EMERGÊNCIA','emerg']],
+    v1d:'Entrada principal de CQ-4 para a cela.',
+    v2d:'Retorno do circuito — serve de contrapressão no modo equilíbrio.',
+    modedesc:'EQUILÍBRIO distribui o fluxo igualmente entre as subcelas.',
+    states:{
+      'open|normal|closed':  {press:45,flux:35, lbl:'DESEQUILÍBRIO',    sub:'Pressão irregular. Fluxo sem contrapressão no retorno.'},
+      'closed|eq|closed':    {press:30,flux:15, lbl:'EQUILÍBRIO VAZIO', sub:'Modo ativo mas sem fluxo. Sem efeito nas câmaras.'},
+      'open|eq|closed':      {press:50,flux:42, lbl:'INCOMPLETO',       sub:'Equilíbrio incompleto — retorno fechado. Pressão não distribui.'},
+      'closed|normal|open':  {press:35,flux:28, lbl:'FLUXO INVERTIDO',  sub:'Fluxo apenas pelo retorno. Pressão irregular.'},
+      'open|emerg|open':     {press:88,flux:115,lbl:'SOBREPRESSÃO',     sub:'Modo emergência com ambas válvulas: carga excessiva.'},
+      'open|eq|open':        {press:62,flux:58, lbl:'NOMINAL',          sub:'Equilíbrio ativo. Pressão estabilizada nas duas subcelas.'}
+    }
+  },
+  {
+    id:'S-6',
+    sk:'ok', st:'NOMINAL', autoResolve:true,
+    info:'Sujeito não localizado na instalação. CQ-4 desativado automaticamente por protocolo de cela vazia.',
+    target:{v1:'closed',mode:'normal',v2:'closed'},
+    start:{v1:'closed',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
+    v1d:'Fechada — cela vazia, sem sujeito ativo.',
+    v2d:'Fechada — sistema desativado.',
+    modedesc:'Sistema inativo por ausência de sujeito.',
+    states:{}
+  },
+  {
+    id:'S-7', elem:'—',
+    sk:'warn', st:'FALHA DE LEITURA',
+    info:'Sensor de presença com falha desde o incidente. CQ-4 em modo emergência automático. Normalizar manualmente.',
+    target:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'closed',mode:'emerg',v2:'open'},
+    modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
+    v1d:'Válvula principal — desativada pelo modo emergência automático.',
+    v2d:'Válvula de retorno — aberta pelo failsafe de emergência.',
+    modedesc:'NORMAL restaura operação padrão. EMERGÊNCIA mantém o estado atual.',
+    states:{
+      'closed|emerg|open':  {press:20,flux:15,lbl:'MODO EMERGÊNCIA',    sub:'Failsafe ativo desde o incidente. Normalizar para restaurar CQ-4.'},
+      'open|emerg|open':    {press:55,flux:90,lbl:'DIVERGÊNCIA',        sub:'V1 aberta com emergência ativa — fluxo instável.'},
+      'open|iso|closed':    {press:38,flux:20,lbl:'ISOLAMENTO PARCIAL', sub:'Isolamento sem modo normal. Pressão abaixo do ideal.'},
+      'open|normal|closed': {press:62,flux:58,lbl:'NOMINAL',            sub:'Sistema restaurado. CQ-4 normalizado.'}
+    }
+  },
+  {
+    id:'S-8', gasDisplay:'disabled',
+    sk:'warn', st:'SEM PERFIL',
+    info:'Sujeito sem registro no sistema. CQ-4 ativo por protocolo padrão. Isolamento preventivo recomendado.',
+    target:{v1:'closed',mode:'iso',v2:'closed'},
+    start:{v1:'open',mode:'normal',v2:'open'},
+    modes:[['NORMAL','normal'],['ISOLAMENTO','iso'],['EMERGÊNCIA','emerg']],
+    v1d:'Entrada principal — ativa em modo padrão sem perfil de sujeito.',
+    v2d:'Retorno — aberto junto com V1 no modo padrão.',
+    modedesc:'ISOLAMENTO corta o circuito completamente até identificação do sujeito.',
+    states:{
+      'open|normal|open':   {press:70,flux:80, lbl:'CIRCUITO ABERTO',   sub:'Sem perfil ativo. Protocolo padrão — CQ-4 distribuído sem calibração.'},
+      'closed|iso|open':    {press:30,flux:18, lbl:'ISOLAMENTO PARCIAL',sub:'V2 ainda aberta. Isolar completamente antes de confirmar.'},
+      'open|iso|closed':    {press:40,flux:22, lbl:'ISOLAMENTO PARCIAL',sub:'V1 ainda aberta. Fechar para completar o isolamento.'},
+      'open|emerg|open':    {press:88,flux:120,lbl:'SOBRECARGA',        sub:'Emergência sem perfil identificado: risco de colapso do circuito.'},
+      'closed|iso|closed':  {press:62,flux:58, lbl:'NOMINAL',           sub:'Circuito isolado. CQ-4 suspenso até identificação do sujeito.'}
+    }
+  },
+  {
+    id:'S-10',
+    sk:'warn', st:'DESVIO DETECTADO',
+    info:'Rotina de calibração periódica detectou desvio de configuração. Sistema fora do padrão de longa permanência.',
+    target:{v1:'open',mode:'normal',v2:'closed'},
+    start:{v1:'open',mode:'recirc',v2:'open'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
+    v1d:'Válvula principal — operação contínua há 8 anos.',
+    v2d:'Válvula de retorno — aberta indevidamente durante última manutenção.',
+    modedesc:'NORMAL restaura configuração padrão de longa permanência.',
+    states:{
+      'open|recirc|open':   {press:55,flux:95, lbl:'DESVIO OPERACIONAL',  sub:'Recirculação ativa com V2 aberta. Consumo elevado.'},
+      'open|recirc|closed': {press:58,flux:80, lbl:'RECIRCULAÇÃO ATIVA',  sub:'Recirculação ainda ativa. Retornar ao modo normal.'},
+      'open|iso|closed':    {press:38,flux:22, lbl:'ISOLAMENTO INDEVIDO', sub:'Modo de isolamento inadequado para longa permanência.'},
+      'closed|normal|closed':{press:15,flux:8, lbl:'SUBCARGA',            sub:'V1 fechada. Fluxo insuficiente para sujeito ativo.'},
+      'open|normal|open':   {press:68,flux:75, lbl:'AJUSTE INCOMPLETO',   sub:'Modo normalizado mas V2 ainda aberta.'},
+      'open|normal|closed': {press:62,flux:58, lbl:'NOMINAL',             sub:'Configuração padrão restaurada. Sistema calibrado.'}
+    }
+  },
+  {
+    id:'S-11',
+    sk:'ok', st:'NOMINAL', autoResolve:true,
+    info:'Sujeito não localizado na instalação. CQ-4 desativado automaticamente por protocolo de cela vazia.',
+    target:{v1:'closed',mode:'normal',v2:'closed'},
+    start:{v1:'closed',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['RECIRCULAÇÃO','recirc'],['ISOLAMENTO','iso']],
+    v1d:'Fechada — cela vazia, sem sujeito ativo.',
+    v2d:'Fechada — sistema desativado.',
+    modedesc:'Sistema inativo por ausência de sujeito.',
+    states:{}
+  },
+  {
+    id:'S-V', gasDisplay:'disabled',
+    sk:'lock', st:'BLOQUEADO — NÍVEL Ω', autoResolve:true,
+    info:'Acesso ao subsistema de ventilação desta cela requer autorização nível Ω. Interface bloqueada por protocolo D-0.',
+    target:{v1:'closed',mode:'purge',v2:'open'},
+    start:{v1:'open',mode:'normal',v2:'closed'},
+    modes:[['NORMAL','normal'],['PURGAMENTO','purge'],['LOCKDOWN','lock']],
+    v1d:'Entrada principal — BLOQUEADA por Protocolo D-0.',
+    v2d:'Válvula de purga — BLOQUEADA por Protocolo D-0.',
+    modedesc:'PURGAMENTO substitui o gás residual por ar neutro.',
+    states:{
+      'closed|purge|open':  {press:62,flux:58,lbl:'NOMINAL',sub:'Purgamento ativo. Câmara estabilizada.'},
+      'open|lock|closed':   {press:0, flux:0, lbl:'LOCKDOWN ATIVO',sub:'Sistema em lockdown total. Nenhuma ação possível.'},
+      'open|normal|closed': {press:88,flux:100,lbl:'SOBREPRESSÃO',sub:'V1 aberta sem purga ativa. Estado perigoso.'}
+    }
+  }
+];
+
+var cellStates   = {};
+var cellResolved = {};
+var currentIdx   = -1;
+var mainSolved   = false;
+var fbLoaded     = false;
+
+// Init local states from CELLS.start
+CELLS.forEach(function(c,i){
+  cellStates[i] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2};
+  cellResolved[i] = false;
+});
+
+// ── Firebase: listen for gas state changes (real-time) ──────────────────────
+db.ref(REF+'/gas').on('value', function(snap){
+  var data = snap.val() || {};
+  CELLS.forEach(function(c,i){
+    if(data[c.id] === true || c.autoResolve){
+      cellResolved[i] = true;
+    }
+  });
+  fbLoaded = true;
+  // If currently viewing puzzle for a cell that's now resolved externally, go back
+  if(currentIdx >= 0 && cellResolved[currentIdx]){
+    goBack();
+  } else {
+    renderGrid();
+  }
+});
+
+// ── Write resolved cell to Firebase ─────────────────────────────────────────
+function saveResolved(id){
+  db.ref(REF+'/gas/'+id).set(true);
+}
+
+// ── Write autoResolve cells on first load ───────────────────────────────────
+// (only after fb is connected, and only once)
+db.ref('.info/connected').once('value', function(snap){
+  if(snap.val()){
+    CELLS.forEach(function(c){
+      if(c.autoResolve){
+        db.ref(REF+'/gas/'+c.id).set(true);
+      }
+    });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+
+function renderGrid(){
+  var grid = document.getElementById('cell-grid');
+  grid.innerHTML = '';
+  CELLS.forEach(function(c,i){
+    var resolved = cellResolved[i];
+    var card = document.createElement('div');
+    var html, cls;
+
+    if(c.gasDisplay === 'absent'){
+      // S-4: sem CQ-4 — amarelo
+      cls = 'cell-card no-action gas-absent';
+      html = '<div class="c-id">'+c.id+'</div>'+
+             '<div class="c-status"><div class="sdot warn"></div><div class="stxt warn">SEM GÁS</div></div>'+
+             '<div class="gas-abs-badge">Sem gás</div>';
+
+    } else if(c.gasDisplay === 'disabled'){
+      // S-8, S-V: gás desativado — vermelho
+      cls = 'cell-card no-action gas-disabled';
+      html = '<div class="c-id">'+c.id+'</div>'+
+             '<div class="c-status"><div class="sdot lock"></div><div class="stxt lock">DESATIVADO</div></div>'+
+             '<div class="gas-dis-badge">Gás desativado</div>';
+
+    } else if(resolved && !c.autoResolve){
+      // Célula resolvida pelo jogador — CQ-4 neutralizado
+      cls = 'cell-card no-action resolved-now';
+      html = '<div class="c-id">'+c.id+'</div>'+
+             '<div class="c-status"><div class="sdot done"></div><div class="stxt done">CQ-4 NOMINAL</div></div>'+
+             '<div class="gas-done-badge">Neutralizado</div>';
+
+    } else {
+      // Gás operando (autoResolve ou ainda não resolvido)
+      var noClick = c.autoResolve;
+      cls = 'cell-card gas-operating' + (noClick ? ' no-action' : '');
+      html = '<div class="c-id">'+c.id+'</div>'+
+             '<div class="c-status"><div class="sdot ok"></div><div class="stxt ok">GÁS OPERANDO</div></div>'+
+             '<div class="gas-oper-badge">Gás operando</div>';
+      if(!noClick){ (function(idx){ card.onclick = function(){ openCell(idx); }; })(i); }
+    }
+
+    card.className = cls;
+    card.innerHTML = html;
+    grid.appendChild(card);
+  });
+}
+
+function openCell(idx){
+  if(cellResolved[idx]) return;
+  currentIdx = idx;
+  var c = CELLS[idx];
+  document.getElementById('screen-select').style.display = 'none';
+  document.getElementById('screen-puzzle').style.display = 'block';
+  document.getElementById('p-cid').textContent   = c.id;
+  document.getElementById('p-cinfo').textContent = c.info;
+  document.getElementById('v1-desc').textContent   = c.v1d;
+  document.getElementById('v2-desc').textContent   = c.v2d;
+  document.getElementById('mode-desc').textContent = c.modedesc;
+
+  var mb = document.getElementById('mode-btns');
+  mb.innerHTML = '';
+  c.modes.forEach(function(m){
+    var btn = document.createElement('button');
+    btn.className = 'sbtn';
+    btn.id = 'mode-'+m[1];
+    btn.textContent = m[0];
+    (function(key){ btn.onclick = function(){ setCtrl('mode',key); }; })(m[1]);
+    mb.appendChild(btn);
+  });
+
+  cellStates[idx] = {v1:c.start.v1, mode:c.start.mode, v2:c.start.v2};
+  updatePuzzle();
+}
+
+function goBack(){
+  document.getElementById('screen-select').style.display = 'block';
+  document.getElementById('screen-puzzle').style.display = 'none';
+  currentIdx = -1;
+  renderGrid();
+}
+
+function setCtrl(ctrl,val){
+  if(currentIdx<0) return;
+  cellStates[currentIdx][ctrl] = val;
+  updatePuzzle();
+}
+
+function computeState(c,s){
+  var key = s.v1+'|'+s.mode+'|'+s.v2;
+  if(c.states && c.states[key]) return c.states[key];
+  var t = c.target;
+  var sc = (s.v1===t.v1?1:0) + (s.mode===t.mode?1:0) + (s.v2===t.v2?1:0);
+  if(sc===3) return {press:62,flux:58,lbl:'NOMINAL',sub:'Sistema estabilizado.'};
+  if(sc===2) return {press:48,flux:75,lbl:'AJUSTE INCOMPLETO',sub:'Um parâmetro fora do valor ideal.'};
+  if(sc===1) return {press:30,flux:100,lbl:'DIVERGÊNCIA',sub:'Configuração incorreta. Dois parâmetros errados.'};
+  return {press:15,flux:20,lbl:'FALHA',sub:'Configuração inválida. Sistema em estado de erro.'};
+}
+
+function updatePuzzle(){
+  if(currentIdx<0) return;
+  var c = CELLS[currentIdx];
+  var s = cellStates[currentIdx];
+  var st = computeState(c,s);
+  var ok = st.lbl==='NOMINAL';
+
+  var p = Math.min(st.press,100), f = Math.min(st.flux,100);
+  var pc = ok ? '#00aa44' : (st.press>80?'#cc2200': (st.press<30?'#cc6600':'#cc8800'));
+  var fc = ok ? '#00aa44' : (st.flux>100?'#cc2200':(st.flux<30?'#cc6600':'#cc8800'));
+  document.getElementById('g-press').textContent = st.press+'%';
+  document.getElementById('g-flux').textContent  = st.flux+'%';
+  document.getElementById('gf-press').style.width      = p+'%';
+  document.getElementById('gf-press').style.background = pc;
+  document.getElementById('gf-flux').style.width       = f+'%';
+  document.getElementById('gf-flux').style.background  = fc;
+
+  document.getElementById('s-lbl').textContent  = st.lbl;
+  document.getElementById('s-lbl').style.color  = ok ? '#00cc44' : '#cc5500';
+  document.getElementById('s-sub').textContent  = st.sub;
+  document.getElementById('s-sub').style.color  = ok ? '#006633' : '#555';
+
+  document.getElementById('v1-open').className   = 'sbtn'+(s.v1==='open'?' active-open':'');
+  document.getElementById('v1-closed').className = 'sbtn'+(s.v1==='closed'?' active-closed':'');
+
+  c.modes.forEach(function(m){
+    var btn = document.getElementById('mode-'+m[1]);
+    if(btn) btn.className = 'sbtn'+(s.mode===m[1]?' active-mode':'');
+  });
+
+  document.getElementById('v2-open').className   = 'sbtn'+(s.v2==='open'?' active-open':'');
+  document.getElementById('v2-closed').className = 'sbtn'+(s.v2==='closed'?' active-closed':'');
+
+  document.getElementById('confirm-btn').className = 'confirm-btn'+(ok?' ready':'');
+}
+
+function confirmConfig(){
+  if(currentIdx<0) return;
+  var c = CELLS[currentIdx];
+  var s = cellStates[currentIdx];
+  var st = computeState(c,s);
+  if(st.lbl!=='NOMINAL') return;
+
+  cellResolved[currentIdx] = true;
+  saveResolved(c.id);  // write to Firebase → propagates to celas.html in real-time
+
+  if(c.critical && !mainSolved){
+    mainSolved = true;
+    setTimeout(function(){ document.getElementById('successSc').classList.add('show'); }, 400);
+    return;
+  }
+
+  document.getElementById('csm-title').textContent = 'CQ-4 DESATIVADO — '+c.id;
+  document.getElementById('csm-cell').textContent  = c.id+' | GÁS NOMINAL — CELA LIBERADA';
+  document.getElementById('cell-ok-msg').classList.add('show');
+}
+
+function closeCellOk(){
+  document.getElementById('cell-ok-msg').classList.remove('show');
+  goBack();
+}
+
+renderGrid();
+</script>
+</body>
+</html>
