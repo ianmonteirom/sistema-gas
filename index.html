@@ -271,6 +271,18 @@ firebase.initializeApp(firebaseConfig);
 var db = firebase.database();
 var REF = 'n7';
 
+// ── BroadcastChannel + localStorage — comunicação em tempo real com celas ──
+var gasChannel;
+try { gasChannel = new BroadcastChannel('n7-gas'); } catch(e){}
+
+function broadcastResolved(id){
+  localStorage.setItem('n7-gas-'+id, 'true');
+  if(gasChannel) gasChannel.postMessage({type:'resolved', id:id});
+}
+function broadcastGasData(id, press, flux, lbl){
+  if(gasChannel) gasChannel.postMessage({type:'gasData', id:id, press:press, flux:flux, lbl:lbl});
+}
+
 // Connection indicator
 db.ref('.info/connected').on('value', function(snap){
   var ok = snap.val() === true;
@@ -586,6 +598,7 @@ db.ref(REF+'/gas').on('value', function(snap){
 // ── Write resolved cell to Firebase ─────────────────────────────────────────
 function saveResolved(id){
   db.ref(REF+'/gas/'+id).set(true);
+  broadcastResolved(id);
 }
 
 // ── Write autoResolve cells on first load ───────────────────────────────────
@@ -595,6 +608,7 @@ db.ref('.info/connected').once('value', function(snap){
     CELLS.forEach(function(c){
       if(c.autoResolve){
         db.ref(REF+'/gas/'+c.id).set(true);
+        broadcastResolved(c.id);
       }
     });
   }
@@ -748,6 +762,7 @@ function updatePuzzle(){
   // Broadcast current readings to Firebase for celas to display
   var c2 = CELLS[currentIdx];
   db.ref(REF+'/gasData/'+c2.id).set({press:st.press, flux:st.flux, lbl:st.lbl});
+  broadcastGasData(c2.id, st.press, st.flux, st.lbl);
 }
 
 function confirmConfig(){
