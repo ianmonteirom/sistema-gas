@@ -597,7 +597,9 @@ db.ref(REF+'/gas').on('value', function(snap){
 
 // ── Write resolved cell to Firebase ─────────────────────────────────────────
 function saveResolved(id){
-  db.ref(REF+'/gas/'+id).set(true);
+  db.ref(REF+'/gas/'+id).set(true)
+    .then(function(){ console.log('[N7] Firebase OK: gas/'+id); })
+    .catch(function(e){ console.error('[N7] Firebase ERRO: gas/'+id, e.message); });
   broadcastResolved(id);
 }
 
