@@ -602,21 +602,34 @@ function saveResolved(id){
   broadcastResolved(id);
 }
 
-// ── Write autoResolve cells + initial gasData on first load ─────────────────
-db.ref('.info/connected').once('value', function(snap){
-  if(snap.val()){
+// ── Write autoResolve cells + initial gasData on first connection ────────────
+// NOTA: .once() dispara imediatamente com false se não conectado ainda.
+// Usar .on() com flag garante que só executa quando realmente conectado.
+var initialWritesDone = false;
+db.ref('.info/connected').on('value', function(snap){
+  if(snap.val() && !initialWritesDone){
+    initialWritesDone = true;
+    console.log('[N7] Conectado ao Firebase — escrevendo estado inicial...');
     CELLS.forEach(function(c, i){
       if(c.autoResolve){
-        db.ref(REF+'/gas/'+c.id).set(true);
+        db.ref(REF+'/gas/'+c.id).set(true)
+          .then(function(){ console.log('[N7] Firebase OK: autoResolve '+c.id); })
+          .catch(function(e){ console.error('[N7] Firebase ERRO: autoResolve '+c.id, e.message); });
         broadcastResolved(c.id);
       }
       // Escreve leitura inicial de todas as células com puzzle
       if(!c.autoResolve && c.sk !== 'lock'){
         var st = computeState(c, cellStates[i]);
-        db.ref(REF+'/gasData/'+c.id).set({press:st.press, flux:st.flux, lbl:st.lbl});
+        db.ref(REF+'/gasData/'+c.id).set({press:st.press, flux:st.flux, lbl:st.lbl})
+          .then(function(){ /* silencioso */ })
+          .catch(function(e){ console.error('[N7] Firebase ERRO: gasData init '+c.id, e.message); });
         broadcastGasData(c.id, st.press, st.flux, st.lbl);
       }
     });
+    // Teste de escrita para diagnóstico
+    db.ref(REF+'/test').set({ts: Date.now(), from:'sistema-gas'})
+      .then(function(){ console.log('[N7] Firebase TEST WRITE: OK — Firebase está funcionando!'); })
+      .catch(function(e){ console.error('[N7] Firebase TEST WRITE: FALHOU —', e.message); });
   }
 });
 
