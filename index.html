@@ -276,7 +276,6 @@ var gasChannel;
 try { gasChannel = new BroadcastChannel('n7-gas'); } catch(e){}
 
 function broadcastResolved(id){
-  localStorage.setItem('n7-gas-'+id, 'true');
   if(gasChannel) gasChannel.postMessage({type:'resolved', id:id});
 }
 function broadcastGasData(id, press, flux, lbl){
