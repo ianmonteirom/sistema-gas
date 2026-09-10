@@ -602,18 +602,30 @@ function saveResolved(id){
   broadcastResolved(id);
 }
 
-// ── Write autoResolve cells on first load ───────────────────────────────────
-// (only after fb is connected, and only once)
+// ── Write autoResolve cells + initial gasData on first load ─────────────────
 db.ref('.info/connected').once('value', function(snap){
   if(snap.val()){
-    CELLS.forEach(function(c){
+    CELLS.forEach(function(c, i){
       if(c.autoResolve){
         db.ref(REF+'/gas/'+c.id).set(true);
         broadcastResolved(c.id);
       }
+      // Escreve leitura inicial de todas as células com puzzle
+      if(!c.autoResolve && c.sk !== 'lock'){
+        var st = computeState(c, cellStates[i]);
+        db.ref(REF+'/gasData/'+c.id).set({press:st.press, flux:st.flux, lbl:st.lbl});
+        broadcastGasData(c.id, st.press, st.flux, st.lbl);
+      }
     });
   }
 });
+
+// ── Listener de reset via BroadcastChannel ───────────────────────────────────
+if(gasChannel){
+  gasChannel.onmessage = function(e){
+    if(e.data && e.data.type === 'reset') location.reload();
+  };
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 
