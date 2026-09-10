@@ -242,6 +242,7 @@ body {
   <div class="csm-icon">✓</div>
   <div class="csm-title" id="csm-title">SISTEMA ESTABILIZADO</div>
   <div class="csm-cell"  id="csm-cell"></div>
+  <div id="csm-fb" style="font-size:11px;letter-spacing:1px;color:#555;margin-top:4px">FIREBASE: SINCRONIZANDO...</div>
   <button class="csm-btn" onclick="closeCellOk()">VOLTAR AO PAINEL</button>
 </div>
 
@@ -595,10 +596,22 @@ db.ref(REF+'/gas').on('value', function(snap){
 });
 
 // ── Write resolved cell to Firebase ─────────────────────────────────────────
+function setFbStatus(ok, msg){
+  var el = document.getElementById('csm-fb');
+  if(!el) return;
+  el.textContent = ok ? '✓ FIREBASE: ' + msg : '✗ FIREBASE ERRO: ' + msg;
+  el.style.color  = ok ? '#00aa44' : '#cc2200';
+}
 function saveResolved(id){
   db.ref(REF+'/gas/'+id).set(true)
-    .then(function(){ console.log('[N7] Firebase OK: gas/'+id); })
-    .catch(function(e){ console.error('[N7] Firebase ERRO: gas/'+id, e.message); });
+    .then(function(){
+      console.log('[N7] Firebase OK: gas/'+id);
+      setFbStatus(true, 'sincronizado — outras telas atualizarão');
+    })
+    .catch(function(e){
+      console.error('[N7] Firebase ERRO: gas/'+id, e.message);
+      setFbStatus(false, e.message);
+    });
   broadcastResolved(id);
 }
 
